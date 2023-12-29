@@ -104,8 +104,12 @@ let keywords =
      ; ("i32.trunc_f32_u", CVTOP (Ty_bitv S32, TruncUF32))
      ; ("i32.trunc_f64_s", CVTOP (Ty_bitv S32, TruncSF64))
      ; ("i32.trunc_f64_u", CVTOP (Ty_bitv S32, TruncUF64))
-     ; ("i32.reinterpret_f32", CVTOP (Ty_bitv S32, Reinterpret_float))
+     ; ("i32.reinterpret_float", CVTOP (Ty_bitv S32, Reinterpret_float))
      ; ("i32.wrap_i64", CVTOP (Ty_bitv S32, WrapI64))
+     ; ("i32.extend_i24_s", CVTOP (Ty_bitv S32, ExtS 24))
+     ; ("i32.extend_i24_u", CVTOP (Ty_bitv S32, ExtU 24))
+     ; ("i32.extend_i16_s", CVTOP (Ty_bitv S32, ExtS 16))
+     ; ("i32.extend_i16_u", CVTOP (Ty_bitv S32, ExtU 16))
      ; ("i64.neg", UNARY (Ty_bitv S64, Neg))
      ; ("i64.clz", UNARY (Ty_bitv S64, Clz))
      ; ("i64.not", UNARY (Ty_bitv S64, Not))
@@ -136,7 +140,7 @@ let keywords =
      ; ("i64.trunc_f32_u", CVTOP (Ty_bitv S64, TruncUF32))
      ; ("i64.trunc_f64_s", CVTOP (Ty_bitv S64, TruncSF64))
      ; ("i64.trunc_f64_u", CVTOP (Ty_bitv S64, TruncUF64))
-     ; ("i64.reinterpret_f64", CVTOP (Ty_bitv S64, Reinterpret_float))
+     ; ("i64.reinterpret_float", CVTOP (Ty_bitv S64, Reinterpret_float))
      ; ("i64.extend_i32_s", CVTOP (Ty_bitv S64, ExtS 32))
      ; ("i64.extend_i32_u", CVTOP (Ty_bitv S64, ExtU 32))
      ; ("f32.neg", UNARY (Ty_fp S32, Neg))
@@ -161,7 +165,7 @@ let keywords =
      ; ("f32.convert_i32_u", CVTOP (Ty_fp S32, ConvertUI32))
      ; ("f32.convert_i64_s", CVTOP (Ty_fp S32, ConvertSI32))
      ; ("f32.demote_f64", CVTOP (Ty_fp S32, DemoteF64))
-     ; ("f32.reinterpret_i32", CVTOP (Ty_fp S32, Reinterpret_int))
+     ; ("f32.reinterpret_int", CVTOP (Ty_fp S32, Reinterpret_int))
      ; ("f64.neg", UNARY (Ty_fp S64, Neg))
      ; ("f64.abs", UNARY (Ty_fp S64, Abs))
      ; ("f64.sqrt", UNARY (Ty_fp S64, Sqrt))
@@ -184,7 +188,9 @@ let keywords =
      ; ("f64.convert_i32_u", CVTOP (Ty_fp S64, ConvertUI32))
      ; ("f64.convert_i64_s", CVTOP (Ty_fp S64, ConvertSI32))
      ; ("f64.promote_f32", CVTOP (Ty_fp S64, PromoteF32))
-     ; ("f64.reinterpret_i64", CVTOP (Ty_fp S64, Reinterpret_int))
+     ; ("f64.reinterpret_int", CVTOP (Ty_fp S64, Reinterpret_int))
+     ; ("extract", EXTRACT)
+     ; ("++", CONCAT)
      ; ("Ptr", PTR)
      ; ("assert", ASSERT)
      ; ("check-sat", CHECK_SAT)
@@ -201,8 +207,8 @@ let newline = '\r' | '\n' | "\r\n"
 
 let digit = ['0'-'9']
 let character = ['a'-'z' 'A'-'Z']
-let numeral = '0' | '-'? [ '1'-'9' ] digit*
-let decimal = numeral '.' '0'* numeral
+let numeral = '-'? ('0' | [ '1'-'9' ] digit*)
+let decimal = '-'? (numeral '.' '0'* numeral | ['n''a']+ )
 let hexadec = "#x" (['a'-'f' 'A'-'F'] | digit)+
 let binary = "#b" ('0' | '1')+
 let bool = "true" | "false"

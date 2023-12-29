@@ -1,5 +1,4 @@
-let pp_string = Format.pp_print_string
-let fprintf = Format.fprintf
+open Format
 
 type _ cast =
   | C32 : int32 cast
@@ -93,6 +92,8 @@ type cvtop =
   | ExtU of int
   | String_to_code
   | String_from_code
+
+let pp_string = pp_print_string
 
 let pp_unop fmt (op : unop) =
   match op with

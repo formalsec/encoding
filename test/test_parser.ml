@@ -2,7 +2,7 @@ open Encoding
 module Batch = Solver.Batch (Z3_mappings)
 module Interpret = Interpret.Make (Batch)
 
-let parse script = Run.parse_string script
+let parse = Parse.Script.from_string
 
 let%test_unit _ =
   let script =

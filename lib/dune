@@ -1,8 +1,8 @@
 (ocamllex
- (modules lexer))
+ (modules lexer smtlib_lexer))
 
 (menhir
- (modules parser))
+ (modules parser smtlib_parser))
 
 (library
  (public_name encoding)
@@ -13,6 +13,7 @@
   eval_numeric
   expr
   interpret
+  interpret_smt
   interpret_intf
   lexer
   mappings_intf
@@ -20,13 +21,19 @@
   num
   op_intf
   optimizer
+  parse
   parser
   params
-  run
+  rewrite
+  smtlib
+  smtlib_lexer
+  smtlib_parser
   solver
   solver_intf
   symbol
+  syntax
   ty
   value
   z3_mappings)
- (libraries z3))
+ (private_modules smtlib_lexer smtlib_parser)
+ (libraries z3 bitv menhirLib))

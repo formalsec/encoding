@@ -15,7 +15,7 @@ let ( = ) (n1 : t) (n2 : t) : bool =
 
 let type_of (n : t) =
   match n with
-  | I8 _ -> assert false
+  | I8 _ -> Ty.(Ty_bitv S8)
   | I32 _ -> Ty.(Ty_bitv S32)
   | I64 _ -> Ty.(Ty_bitv S64)
   | F32 _ -> Ty.(Ty_fp S32)
