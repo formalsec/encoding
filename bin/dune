@@ -9,5 +9,5 @@
 (executable
  (name main2)
  (modules main2)
- (libraries cmdliner encoding encoding.colibri2)
+ (libraries cmdliner encoding encoding.colibri2 encoding.bitwuzla)
  (optional))

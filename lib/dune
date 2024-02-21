@@ -54,3 +54,11 @@
   colibri2.theories.LRA.stages.stage2
   colibri2.theories.fp)
  (optional))
+
+(library
+ (wrapped false)
+ (name encoding_bitwuzla)
+ (public_name encoding.bitwuzla)
+ (modules bitwuzla_mappings)
+ (libraries encoding bitwuzla-cxx)
+ (optional))

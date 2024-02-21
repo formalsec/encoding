@@ -13,6 +13,7 @@ let parse_file file = get_contents file |> Parse.from_string
 type prover =
   | Z3_prover
   | Colibri2_prover
+  | Bitwuzla_prover
 
 let prover_conv =
   Cmdliner.Arg.enum
@@ -21,6 +22,7 @@ let prover_conv =
     ; ("c2", Colibri2_prover)
     ; ("colibri2", Colibri2_prover)
     ; ("Colibri2", Colibri2_prover)
+    ; ("bitwuzla", Bitwuzla_prover)
     ]
 
 let parse_cmdline =
@@ -29,6 +31,7 @@ let parse_cmdline =
       ( val match prover with
             | Z3_prover -> (module Z3_mappings)
             | Colibri2_prover -> (module Colibri2_mappings)
+            | Bitwuzla_prover -> (module Bitwuzla_mappings)
           : Mappings_intf.S )
     in
     Mappings.set_debug debug;

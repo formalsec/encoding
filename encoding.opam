@@ -20,7 +20,10 @@ depends: [
   "hc" {>= "0.3"}
   "bisect_ppx" {with-test & >= "2.5.0" & dev}
 ]
-depopts: ["colibri2"]
+depopts: [
+  "colibri2"
+  "bitwuzla-cxx" {>= "0.4.0"}
+]
 build: [
   ["dune" "subst"] {dev}
   [
