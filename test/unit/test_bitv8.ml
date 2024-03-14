@@ -8,4 +8,4 @@ let () =
   let x = I8.sym "x" in
   assert (Z3.check solver [ I8.(x > v 0) ]);
   let v = Z3.get_value solver x in
-  assert (v.node.e = Val (Num (I8 1)))
+  assert (v >= I8.v 1)

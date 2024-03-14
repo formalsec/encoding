@@ -14,6 +14,11 @@ type prover =
   | Z3_prover
   | Colibri2_prover
 
+type solver =
+  | Bat
+  | Bat_cache
+  | Incr
+
 let prover_conv =
   Cmdliner.Arg.enum
     [ ("z3", Z3_prover)
@@ -23,8 +28,12 @@ let prover_conv =
     ; ("Colibri2", Colibri2_prover)
     ]
 
+let solver_conv =
+  Cmdliner.Arg.enum
+    [ ("batch", Bat); ("batch-cache", Bat_cache); ("incremental", Incr) ]
+
 let parse_cmdline =
-  let aux files prover incremental debug print_statistics =
+  let aux files prover solver debug print_statistics =
     let module Mappings =
       ( val match prover with
             | Z3_prover -> (module Z3_mappings)
@@ -34,8 +43,10 @@ let parse_cmdline =
     in
     Mappings.set_debug debug;
     let module Solver =
-      ( val if incremental then (module Solver.Incremental (Mappings))
-            else (module Solver.Batch (Mappings))
+      ( val match solver with
+            | Bat -> (module Solver.Batch (Mappings))
+            | Bat_cache -> (module Solver.Batch_cached (Mappings))
+            | Incr -> (module Solver.Incremental (Mappings))
           : Solver_intf.S )
     in
     let module Interpret = Interpret.Make (Solver) in
@@ -72,10 +83,10 @@ let parse_cmdline =
     Arg.(
       value & opt prover_conv Z3_prover
       & info [ "p"; "prover" ] ~doc:"SMT solver to use" )
-  and incremental =
+  and solver =
     Arg.(
-      value & flag
-      & info [ "incremental" ] ~doc:"Use the SMT solver in the incremental mode" )
+      value & opt solver_conv Bat
+      & info [ "solver" ] ~doc:"Use the SMT solver mode" )
   and debug =
     Arg.(value & flag & info [ "debug" ] ~doc:"Print debugging messages")
   and print_statistics =
@@ -83,7 +94,7 @@ let parse_cmdline =
   in
   Cmd.v
     (Cmd.info "smtml" ~version:"%%VERSION%%")
-    Term.(const aux $ files $ prover $ incremental $ debug $ print_statistics)
+    Term.(const aux $ files $ prover $ solver $ debug $ print_statistics)
 
 let () =
   match Cmdliner.Cmd.eval_value parse_cmdline with

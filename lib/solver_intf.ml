@@ -62,6 +62,11 @@ module type S = sig
   val model : ?symbols:Symbol.t list -> t -> Model.t option
 end
 
+module type S_cached = sig
+  include S
+  module Cache : Cache_intf.S
+end
+
 module type Intf = sig
   module type S = S
 
@@ -84,6 +89,8 @@ module type Intf = sig
       {!module-type:Mappings_intf.S}. In this mode, the solver delays all
       interactions with the underlying SMT solver until it becomes necessary. *)
   module Batch (M : Mappings_intf.S) : S
+
+  module Batch_cached (M : Mappings_intf.S) : S_cached
 
   (** {1 Incremental Model}
 

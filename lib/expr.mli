@@ -23,7 +23,6 @@ val equal : t -> t -> bool
 val hash : t -> int
 val mk_symbol : Symbol.t -> t
 val get_symbols : t list -> Symbol.t list
-val negate_relop : t -> (t, string) Result.t
 val pp : Format.formatter -> t -> unit
 val pp_smt : Format.formatter -> t list -> unit
 val pp_list : Format.formatter -> t list -> unit

@@ -1,6 +1,7 @@
 (tests
  (names
   test_bitv8
+  test_canonization
   test_eval_numeric
   test_hash_consing
   test_optimizer

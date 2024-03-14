@@ -94,23 +94,6 @@ let get_symbols (hte : ht_expr list) =
   List.iter symbols hte;
   Hashtbl.fold (fun k () acc -> k :: acc) tbl []
 
-let negate_relop (hte : ht_expr) : (ht_expr, string) Result.t =
-  let e =
-    match hte.node.e with
-    | Relop (Eq, e1, e2) -> Ok (Relop (Ne, e1, e2))
-    | Relop (Ne, e1, e2) -> Ok (Relop (Eq, e1, e2))
-    | Relop (Lt, e1, e2) -> Ok (Relop (Ge, e1, e2))
-    | Relop (LtU, e1, e2) -> Ok (Relop (GeU, e1, e2))
-    | Relop (Le, e1, e2) -> Ok (Relop (Gt, e1, e2))
-    | Relop (LeU, e1, e2) -> Ok (Relop (GtU, e1, e2))
-    | Relop (Gt, e1, e2) -> Ok (Relop (Le, e1, e2))
-    | Relop (GtU, e1, e2) -> Ok (Relop (LeU, e1, e2))
-    | Relop (Ge, e1, e2) -> Ok (Relop (Lt, e1, e2))
-    | Relop (GeU, e1, e2) -> Ok (Relop (LtU, e1, e2))
-    | _ -> Error "negate_relop: not a relop."
-  in
-  Result.map (fun relop -> relop @: hte.node.ty) e
-
 module Pp = struct
   open Format
 
@@ -310,12 +293,22 @@ let rec simplify ?(extract = true) (hte : ht_expr) : ht_expr =
 module Bool = struct
   let v b = (match b with true -> Val True | false -> Val False) @: Ty_bool
 
-  let not (v : ht_expr) =
-    ( match v.node.e with
-    | Val True -> Val False
-    | Val False -> Val True
-    | _ -> Unop (Not, v) )
-    @: Ty_bool
+  let not (hte : ht_expr) =
+    let ty = hte.node.ty in
+    match hte.node.e with
+    | Val True -> Val False @: Ty_bool
+    | Val False -> Val True @: Ty_bool
+    | Relop (Eq, e1, e2) -> Relop (Ne, e1, e2) @: ty
+    | Relop (Ne, e1, e2) -> Relop (Eq, e1, e2) @: ty
+    | Relop (Lt, e1, e2) -> Relop (Ge, e1, e2) @: ty
+    | Relop (LtU, e1, e2) -> Relop (GeU, e1, e2) @: ty
+    | Relop (Le, e1, e2) -> Relop (Gt, e1, e2) @: ty
+    | Relop (LeU, e1, e2) -> Relop (GtU, e1, e2) @: ty
+    | Relop (Gt, e1, e2) -> Relop (Le, e1, e2) @: ty
+    | Relop (GtU, e1, e2) -> Relop (LeU, e1, e2) @: ty
+    | Relop (Ge, e1, e2) -> Relop (Lt, e1, e2) @: ty
+    | Relop (GeU, e1, e2) -> Relop (LtU, e1, e2) @: ty
+    | _ -> Unop (Not, hte) @: Ty_bool
 
   let ( = ) (b1 : ht_expr) (b2 : ht_expr) =
     ( match (b1.node.e, b2.node.e) with
@@ -345,60 +338,138 @@ module Bool = struct
     @: Ty_bool
 end
 
-module Make (T : sig
+module Make_bitv (T : sig
   type elt
 
   val ty : Ty.t
-  val num : elt -> Num.t
+  val zero : elt
+  val one : elt
+  val value : elt -> ht_expr
 end) =
 struct
-  let v i = Val (Num (T.num i)) @: T.ty
-  let sym x = mk_symbol Symbol.(x @: T.ty)
-  let ( ~- ) e = Unop (Neg, e) @: T.ty
-  let ( = ) e1 e2 = Relop (Eq, e1, e2) @: T.ty
-  let ( != ) e1 e2 = Relop (Ne, e1, e2) @: T.ty
-  let ( > ) e1 e2 = Relop (Gt, e1, e2) @: T.ty
-  let ( >= ) e1 e2 = Relop (Ge, e1, e2) @: T.ty
-  let ( < ) e1 e2 = Relop (Lt, e1, e2) @: T.ty
-  let ( <= ) e1 e2 = Relop (Le, e1, e2) @: T.ty
+  open Hc
+
+  let v i = T.value i [@@inline]
+  let sym x = mk_symbol Symbol.(x @: T.ty) [@@inline]
+  let ( ~- ) e = Unop (Neg, e) @: T.ty [@@inline]
+
+  (* TODO: Do not normalize expressions such as x <= 0 or x = 0*)
+  (* TODO: Do not create concrete abstract expressions *)
+  (* TODO: pre-processing step to order variables *)
+  (* I.e., (x > y) = (y < x) *)
+
+  (* Normalize (x = y) = (x - y = 0) *)
+  let ( = ) e1 e2 =
+    match (e1.node.e, e2.node.e) with
+    | _, Val (Num (I8 0 | I32 0l | I64 0L)) -> Relop (Eq, e1, e2) @: T.ty
+    | _ -> Relop (Eq, Binop (Sub, e1, e2) @: T.ty, T.(value zero)) @: T.ty
+  [@@inline]
+
+  (* Canonize (x != y) = (x - y != 0) *)
+  let ( != ) e1 e2 =
+    match (e1.node.e, e2.node.e) with
+    | _, Val (Num (I8 0 | I32 0l | I64 0L)) -> Relop (Ne, e1, e2) @: T.ty
+    | _ -> Relop (Ne, Binop (Sub, e1, e2) @: T.ty, T.(value zero)) @: T.ty
+  [@@inline]
+
+  (* Canonize (x > y) = (-x < -y) = (y - x + 1 <= 0) *)
+  let ( > ) e1 e2 =
+    let lhs =
+      match (e1.node.e, e2.node.e) with
+      | _, Val (Num (I8 0 | I32 0l | I64 0L)) ->
+        Binop (Sub, T.(value one), e1) @: T.ty
+      | _ -> Binop (Add, Binop (Sub, e2, e1) @: T.ty, T.(value one)) @: T.ty
+    in
+    Relop (Le, lhs, T.(value zero)) @: T.ty
+  [@@inline]
+
+  (* Canonize (x >= y) = (-x <= -y) = (y - x <= 0) *)
+  let ( >= ) e1 e2 =
+    match (e1.node.e, e2.node.e) with
+    | _, Val (Num (I8 0 | I32 0l | I64 0L)) ->
+      Relop (Le, Unop (Neg, e1) @: T.ty, e2) @: T.ty
+    | _ -> Relop (Le, Binop (Sub, e2, e1) @: T.ty, T.(value zero)) @: T.ty
+  [@@inline]
+
+  (* Canonize (x < y) = (x - y + 1 <= 0) *)
+  let ( < ) e1 e2 =
+    let lhs =
+      match (e1.node.e, e2.node.e) with
+      | _, Val (Num (I8 0 | I32 0l | I64 0L)) ->
+        Binop (Add, e1, T.(value one)) @: T.ty
+      | _ -> Binop (Add, Binop (Sub, e1, e2) @: T.ty, T.(value one)) @: T.ty
+    in
+    Relop (Le, lhs, T.(value zero)) @: T.ty
+  [@@inline]
+
+  (* Canonize (x <= y) = (x - y <= 0) *)
+  let ( <= ) e1 e2 =
+    match (e1.node.e, e2.node.e) with
+    | _, Val (Num (I8 0 | I32 0l | I64 0L)) -> Relop (Le, e1, e2) @: T.ty
+    | _ -> Relop (Le, Binop (Sub, e1, e2) @: T.ty, T.(value zero)) @: T.ty
+  [@@inline]
 end
 
 module Bitv = struct
-  module I8 = Make (struct
+  module I8 = Make_bitv (struct
     type elt = int
 
     let ty = Ty_bitv S8
-    let num i = Num.I8 i
+    let zero = 0
+    let one = 1
+    let value i = Val (Num (I8 i)) @: ty
   end)
 
-  module I32 = Make (struct
+  module I32 = Make_bitv (struct
     type elt = int32
 
     let ty = Ty_bitv S32
-    let num i = Num.I32 i
+    let zero = 0l
+    let one = 1l
+    let value i = Val (Num (I32 i)) @: ty
   end)
 
-  module I64 = Make (struct
+  module I64 = Make_bitv (struct
     type elt = int64
 
     let ty = Ty_bitv S64
-    let num i = Num.I64 i
+    let zero = 0L
+    let one = 1L
+    let value i = Val (Num (I64 i)) @: ty
   end)
 end
 
+module Make_fp (T : sig
+  type elt
+
+  val ty : Ty.t
+  val value : elt -> ht_expr
+end) =
+struct
+  let v i = T.value i [@@inline]
+  let sym x = mk_symbol Symbol.(x @: T.ty) [@@inline]
+  let ( ~- ) e = Unop (Neg, e) @: T.ty [@@inline]
+  let ( = ) e1 e2 = Relop (Eq, e1, e2) @: T.ty [@@inline]
+  let ( != ) e1 e2 = Relop (Ne, e1, e2) @: T.ty [@@inline]
+  let ( > ) e1 e2 = Relop (Gt, e1, e2) @: T.ty [@@inline]
+  let ( >= ) e1 e2 = Relop (Ge, e1, e2) @: T.ty [@@inline]
+  let ( < ) e1 e2 = Relop (Lt, e1, e2) @: T.ty [@@inline]
+  let ( <= ) e1 e2 = Relop (Le, e1, e2) @: T.ty [@@inline]
+end
+
 module Fpa = struct
-  module F32 = Make (struct
+  module F32 = Make_fp (struct
     type elt = float
 
     let ty = Ty_fp S32
-    let num f = Num.F32 (Int32.bits_of_float f)
+    let value f = Val (Num (F32 (Int32.bits_of_float f))) @: ty
   end)
 
-  module F64 = Make (struct
+  module F64 = Make_fp (struct
     type elt = float
 
     let ty = Ty_fp S64
-    let num f = Num.F64 (Int64.bits_of_float f)
+    let value f = Val (Num (F64 (Int64.bits_of_float f))) @: ty
   end)
 end
 

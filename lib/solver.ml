@@ -109,5 +109,23 @@ end
 
 module Batch (M : Mappings_intf.S) : Solver_intf.S = Make_batch (M)
 module Incremental (M : Mappings_intf.S) : Solver_intf.S = Make_incremental (M)
+
+module Batch_cached (M : Mappings_intf.S) : Solver_intf.S_cached = struct
+  include Batch (M)
+
+  module Cache = Cache.Tbl
+
+  let cache : bool Cache.t = Cache.create 256
+
+  let check (solver : t) (es : Expr.t list) =
+    let cond = es @ get_assertions solver in
+    match Cache.find cache cond with
+    | exception Not_found ->
+      let v = check solver es in
+      Cache.add cache cond v;
+      v
+    | v -> v
+end
+
 module Z3_batch : Solver_intf.S = Batch (Z3_mappings)
 module Z3_incremental : Solver_intf.S = Incremental (Z3_mappings)
