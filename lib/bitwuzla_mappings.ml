@@ -292,27 +292,32 @@ module Impl = struct
   end
 
   module Solver = struct
-    let make ?params:_ ?logic:_ = assert false
+    let make ?params:_ ?logic:_ () = Solver.create (Options.default ())
 
     let clone _ = assert false
 
-    let push _ = assert false
+    let push solver = Solver.push solver 1
 
-    let pop _ = assert false
+    let pop solver n = Solver.pop solver n
 
     let reset _ = assert false
 
-    let add _ = assert false
+    let add solver ts = List.iter (Solver.assert_formula solver) ts
 
-    let check _ ~assumptions:_ = assert false
+    let check solver ~assumptions =
+      let assumptions = Array.of_list assumptions in
+      match Solver.check_sat ~assumptions solver with
+      | Result.Sat -> `Sat
+      | Result.Unsat -> `Unsat
+      | Result.Unknown -> `Unknown
 
     let model _ = assert false
 
-    let add_simplifier _ = assert false
+    let add_simplifier solver = solver
 
-    let interrupt _ = assert false
+    let interrupt _ = ()
 
-    let pp_statistics _ = assert false
+    let pp_statistics fmt solver = Solver.pp_statistics fmt solver
   end
 
   module Optimizer = struct
