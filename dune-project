@@ -20,7 +20,7 @@
  (name encoding)
  (synopsis "Smt encoding library")
  (description "An OCaml abstraction layer for constraint solvers.")
- (depopts colibri2)
+ (depopts colibri2 (bitwuzla-cxx (>= "0.4.0")))
  (depends
    dune
    (ocaml (>= "4.14.0"))
