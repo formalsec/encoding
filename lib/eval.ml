@@ -111,6 +111,43 @@ module Real = struct
     in
     f (of_value 1 v1) (of_value 2 v2)
 
+  let convert_int32 (n : float) =
+    match classify_float n with
+    | FP_normal | FP_subnormal ->
+      let i32 = 2. ** 32. in
+      let i31 = 2. ** 31. in
+      let posint = (if n < 0. then -1. else 1.) *. floor (abs_float n) in
+      let int32bit =
+        let smod = mod_float posint i32 in
+        if smod < 0. then smod +. i32 else smod
+      in
+      if int32bit >= i31 then int32bit -. i32 else int32bit
+    | _ -> 0.
+  
+  let convert_uint32 n =
+    match classify_float n with
+    | FP_normal | FP_subnormal ->
+      let i32 = 2. ** 32. in
+      let posint = (if n < 0. then -1. else 1.) *. floor (abs_float n) in
+      let int32bit =
+        let smod = mod_float posint i32 in
+        if smod < 0. then smod +. i32 else smod
+      in
+      int32bit
+    | _ -> 0.
+  
+  let convert_uint16 n =
+    match classify_float n with
+    | FP_normal | FP_subnormal ->
+      let i16 = 2. ** 16. in
+      let posint = (if n < 0. then -1. else 1.) *. floor (abs_float n) in
+      let int16bit =
+        let smod = mod_float posint i16 in
+        if smod < 0. then smod +. i16 else smod
+      in
+      int16bit
+    | _ -> 0.
+
   let cvtop (op : cvtop) (v : Value.t) : Value.t =
     match op with
     | ToString -> Str (Float.to_string (of_value 1 v))
@@ -120,6 +157,10 @@ module Real = struct
     | Reinterpret_int ->
       let v = match v with Int v -> v | _ -> raise_notrace (Value Ty_int) in
       to_value (Float.of_int v)
+    | Reinterpret_float -> Int (Float.to_int (of_value 1 v))
+    | ConvertSI32 -> to_value (convert_int32 (of_value 1 v))
+    | ConvertUI32 -> to_value (convert_uint32 (of_value 1 v))
+    | ConvertUI64 -> to_value (convert_uint16 (of_value 1 v))
     | _ -> Log.err {|cvtop: Unsupported real operator "%a"|} Ty.pp_cvtop op
 end
 
@@ -199,6 +240,8 @@ module Str = struct
     let str = of_value 1 v in
     match op with
     | Seq_length -> Int.to_value (String.length str)
+    | Seq_to_lowercase -> to_value (String.lowercase_ascii str)
+    | Seq_to_uppercase -> to_value (String.uppercase_ascii str)
     | Trim -> to_value (String.trim str)
     | _ -> Log.err {|unop: Unsupported str operator "%a"|} Ty.pp_unop op
 
@@ -249,6 +292,7 @@ module Str = struct
       to_value (String.make 1 (Char.chr code))
     | String_to_int -> Int.to_value (int_of_string (of_value 1 v))
     | String_from_int -> to_value (string_of_int (Int.of_value 1 v))
+    | String_to_float -> Real.to_value (float_of_string (of_value 1 v))
     | _ -> Log.err {|cvtop: Unsupported str operator "%a"|} Ty.pp_cvtop op
 end
 
@@ -469,8 +513,7 @@ module F32 = struct
     | Floor -> to_value' @@ Float.floor v
     | Trunc -> to_value' @@ Float.trunc v
     | Is_nan -> if Float.is_nan v then Value.True else Value.False
-    | Not | Clz | Ctz | Trim | Seq_length ->
-      Log.err {|unop: Unsupported f32 operator "%a"|} Ty.pp_unop op
+    | _ -> Log.err {|unop: Unsupported f32 operator "%a"|} Ty.pp_unop op
 
   let binop (op : binop) (v1 : Value.t) (v2 : Value.t) : Value.t =
     let f =
@@ -529,8 +572,7 @@ module F64 = struct
     | Floor -> to_value' @@ Float.floor v
     | Trunc -> to_value' @@ Float.trunc v
     | Is_nan -> if Float.is_nan v then Value.True else Value.False
-    | Not | Clz | Ctz | Trim | Seq_length ->
-      Log.err {|unop: Unsupported f32 operator "%a"|} Ty.pp_unop op
+    | _ -> Log.err {|unop: Unsupported f32 operator "%a"|} Ty.pp_unop op
 
   let binop (op : binop) (v1 : Value.t) (v2 : Value.t) : Value.t =
     let f =

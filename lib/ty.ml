@@ -33,6 +33,8 @@ type unop =
   | Nearest
   (* String *)
   | Seq_length
+  | Seq_to_lowercase
+  | Seq_to_uppercase
   | Trim
 
 type binop =
@@ -61,6 +63,7 @@ type binop =
   | Seq_suffix
   | Seq_contains
   | Seq_last_index
+  | Seq_split
 
 type relop =
   | Eq
@@ -106,6 +109,7 @@ type cvtop =
   | String_from_code
   | String_to_int
   | String_from_int
+  | String_to_float
 
 type logic =
   | AUFLIA
@@ -148,6 +152,8 @@ let pp_unop fmt (op : unop) =
   | Trunc -> pp_string fmt "trunc"
   | Nearest -> pp_string fmt "nearest"
   | Seq_length -> pp_string fmt "len"
+  | Seq_to_lowercase -> pp_string fmt "to_lowercase"
+  | Seq_to_uppercase -> pp_string fmt "to_uppercase"
   | Trim -> pp_string fmt "trim"
 
 let pp_binop fmt (op : binop) =
@@ -176,6 +182,7 @@ let pp_binop fmt (op : binop) =
   | Seq_suffix -> pp_string fmt "suffixof"
   | Seq_contains -> pp_string fmt "contains"
   | Seq_last_index -> pp_string fmt "last_indexof"
+  | Seq_split -> pp_string fmt "split"
 
 let pp_triop fmt (op : triop) =
   match op with
@@ -222,6 +229,7 @@ let pp_cvtop fmt (op : cvtop) =
   | String_from_code -> pp_string fmt "from_code"
   | String_to_int -> pp_string fmt "to_int"
   | String_from_int -> pp_string fmt "from_int"
+  | String_to_float -> pp_string fmt "to_float"
 
 let pp fmt = function
   | Ty_int -> pp_string fmt "int"
